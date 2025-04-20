@@ -10,7 +10,8 @@ import (
 )
 
 // rootFolder defines the base directory where videos will be searched
-var rootFolder = "/subextract/videos"
+var rootFolder = "/app/subextract/videos"
+//var rootFolder = "/home/brunopoiano/Documents/Pessoal/sub-extract-go/videos"
 
 // videoExtensions is a map of supported video file extensions
 var videoExtensions = map[string]bool{
@@ -63,8 +64,8 @@ func getItemsFromFolder(location string) {
 			} else {
 				println("subtitles already extracted for:", item.Name())
 			}
+			println("----------------------------------------")
 		}
-
 	}
 }
 
@@ -72,55 +73,65 @@ func getItemsFromFolder(location string) {
 // using ffmpeg and initiates extraction if subtitles are found
 func runningEmbedSubtitleCheck(location string, item os.DirEntry) {
 
-	name := item.Name()
-	command := fmt.Sprintf("ffmpeg -i '%s/%s' 2>&1 | grep Stream.*Subtitle", location, name)
+	fullPath := newLocation(location, item.Name())
 
-	cmd := exec.Command("bash", "-c", command)
+	cmd := exec.Command("ffmpeg", "-i", fullPath)
 	output, err := cmd.CombinedOutput()
-	if err != nil {
+	if err != nil && !strings.Contains(string(output), "Stream") {
 		println("No subtitles found for:", item.Name())
 		return
 	}
 
 	println("Extracting subtitles for:", item.Name())
 
-	items := strings.Split(string(output), "\n")
+	reStream := regexp.MustCompile(`Stream #\d+:\d+\((\w{3})\): Subtitle`)
+	matches := reStream.FindAllStringSubmatch(string(output), -1)
 
-	for _, item := range items {
-		re := regexp.MustCompile(`\d+:\d+\([a-zA-Z0-9]{3}\)`)
-		matches := re.FindAllString(item, -1)
+	if len(matches) == 0 {
+		println("No subtitle stream detected")
+		return
+	}
 
-		if len(matches) == 0 {
+	reIndex := regexp.MustCompile(`Stream #(\d+:\d+)\((\w{3})\): Subtitle`)
+	languages := strings.Split(string(output), "\n")
+
+	for _, language := range languages {
+
+		if !strings.Contains(language, "Subtitle") {
 			continue
 		}
-		runningExtractSubtitle(location, name, matches[0])
+
+		match := reIndex.FindStringSubmatch(language)
+
+		if len(match) != 3 {
+			continue
+		}
+
+		subtitleIndex := match[1]
+		subtitleLanguage := match[2]
+
+		runningExtractSubtitle(location, item.Name(), subtitleIndex, subtitleLanguage)
 	}
 
 }
 
 // runningExtractSubtitle extracts embedded subtitles from a video file
 // using ffmpeg with the specified subtitle track and language
-func runningExtractSubtitle(location, name, subLanguage string) {
-
-	re := regexp.MustCompile(`[()]`)
-
-	subDiv := strings.Split(subLanguage, "(")
-	subNum := string(subDiv[0])
-	subLen := re.ReplaceAllString(subDiv[1], "")
+func runningExtractSubtitle(location, name, subtitleIndex, subtitleLanguage string) {
 
 	fullPath := newLocation(location, name)
 
 	newName := strings.TrimSuffix(fullPath, extractExtention(name))
-	fullName := newSrtName(newName, subLen)
+	fullName := newSrtName(newName, subtitleLanguage)
 
-	command := fmt.Sprintf("ffmpeg -i '%s' -map %s -c:s srt '%s'", fullPath, subNum, fullName)
-
-	cmd := exec.Command("bash", "-c", command)
+	cmd := exec.Command("ffmpeg", "-i", fullPath, "-map", subtitleIndex, "-c:s", "srt", fullName)
 
 	_, err := cmd.CombinedOutput()
 	if err != nil {
 		fmt.Println("Error:", err)
 	}
+
+	println(subtitleLanguage, "extracted")
 
 }
 
