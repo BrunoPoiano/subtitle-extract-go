@@ -1,0 +1,6 @@
+
+services:
+  subextract:
+    build: .
+    restart: unless-stopped
+    container_name: subextract
