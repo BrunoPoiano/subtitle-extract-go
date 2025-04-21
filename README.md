@@ -18,6 +18,7 @@ SubExtract is a Go application that automatically extracts embedded subtitles fr
 ## Deployment Options
 
 ### Using Docker (Recommended)
+You can find the Docker image here: [qbit-relocator image](https://hub.docker.com/repository/docker/brunopoiano/qbit-relocater/general)
 
 #### Option 1: Pull from Docker Hub
 ```bash
