@@ -6,12 +6,14 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
+	"sync"
 )
 
 // rootFolder defines the base directory where videos will be searched
-var rootFolder = "/app/subextract/videos"
-//var rootFolder = "/home/brunopoiano/Documents/Pessoal/sub-extract-go/videos"
+// var rootFolder = "/app/subextract/videos"
+var rootFolder = "/home/brunopoiano/Documents/Pessoal/sub-extract-go/videos"
 
 // videoExtensions is a map of supported video file extensions
 var videoExtensions = map[string]bool{
@@ -24,16 +26,50 @@ var videoExtensions = map[string]bool{
 	".webm": true,
 }
 
+type SubtitleJob struct {
+	location string
+	item     os.DirEntry
+}
+
+func runWorkerPool(jobs <-chan SubtitleJob, workers int, wg *sync.WaitGroup) {
+	for range workers {
+		go func() {
+			for job := range jobs {
+				runningEmbedSubtitleCheck(job.location, job.item)
+				wg.Done()
+			}
+		}()
+	}
+}
+
 // main is the entry point of the program, starts the subtitle extraction process
 func main() {
-	os.Setenv("PROD", "PRODUCTION")
-	getItemsFromFolder(rootFolder)
+	var wg sync.WaitGroup
+	cpus_available := runtime.NumCPU()
+
+	if cpus_available < 4 {
+		cpus_available = 1
+	} else {
+		cpus_available--
+	}
+	println("using", cpus_available, "workers")
+
+	jobs := make(chan SubtitleJob)
+
+	// iniciating worker pool
+	runWorkerPool(jobs, cpus_available, &wg)
+
+	// running search
+	getItemsFromFolder(rootFolder, jobs, &wg)
+
+	close(jobs)
+
+	wg.Wait()
 }
 
 // getItemsFromFolder recursively processes all items in the given directory
 // looking for video files to extract subtitles from
-func getItemsFromFolder(location string) {
-
+func getItemsFromFolder(location string, jobs chan<- SubtitleJob, wg *sync.WaitGroup) {
 	items, err := os.ReadDir(location)
 	if err != nil {
 		fmt.Printf("Error accessing folder %s: %v\n", location, err)
@@ -43,8 +79,8 @@ func getItemsFromFolder(location string) {
 	for _, item := range items {
 
 		if item.IsDir() {
-			newLocation := newLocation(location, item.Name())
-			getItemsFromFolder(newLocation)
+			newLoc := newLocation(location, item.Name())
+			getItemsFromFolder(newLoc, jobs, wg)
 			continue
 		}
 
@@ -60,11 +96,11 @@ func getItemsFromFolder(location string) {
 			//checking if file already exists
 			_, err := os.Stat(newName)
 			if err != nil {
-				runningEmbedSubtitleCheck(location, item)
+				wg.Add(1)
+				jobs <- SubtitleJob{location, item}
 			} else {
 				println("subtitles already extracted for:", item.Name())
 			}
-			println("----------------------------------------")
 		}
 	}
 }
@@ -78,17 +114,17 @@ func runningEmbedSubtitleCheck(location string, item os.DirEntry) {
 	cmd := exec.Command("ffmpeg", "-i", fullPath)
 	output, err := cmd.CombinedOutput()
 	if err != nil && !strings.Contains(string(output), "Stream") {
-		println("No subtitles found for:", item.Name())
+		println("No subtitles found for |", item.Name())
 		return
 	}
 
-	println("Extracting subtitles for:", item.Name())
+	println("Extracting from |", item.Name())
 
 	reStream := regexp.MustCompile(`Stream #\d+:\d+\((\w{3})\): Subtitle`)
 	matches := reStream.FindAllStringSubmatch(string(output), -1)
 
 	if len(matches) == 0 {
-		println("No subtitle stream detected")
+		println("No subtitle stream detected for |", item.Name())
 		return
 	}
 
@@ -131,7 +167,7 @@ func runningExtractSubtitle(location, name, subtitleIndex, subtitleLanguage stri
 		fmt.Println("Error:", err)
 	}
 
-	println(subtitleLanguage, "extracted")
+	println("extracted |", subtitleLanguage, "from", name)
 
 }
 
