@@ -1,11 +1,9 @@
-
 services:
   subextract:
     build: .
-    environment:    
+    environment:
       TZ: America/Sao_Paulo
     restart: unless-stopped
     container_name: subextract
     volumes:
-      - /home/brunopoiano/Documents/Pessoal/sub-extract-go/videos:/app/subextract/videos:rw
-
+      - /location/of/videos:/app/subextract/videos:rw
