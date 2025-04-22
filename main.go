@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"time"
 )
 
 // rootFolder defines the base directory where videos will be searched.
@@ -60,7 +61,7 @@ func main() {
 		cpus_available--
 	}
 
-	println("using", cpus_available, "workers")
+	generateLogs(fmt.Sprintf("INFO | using %d workers", cpus_available))
 
 	jobs := make(chan SubtitleJob)
 
@@ -85,7 +86,7 @@ func main() {
 func getItemsFromFolder(location string, jobs chan<- SubtitleJob, wg *sync.WaitGroup) {
 	items, err := os.ReadDir(location)
 	if err != nil {
-		fmt.Printf("Error accessing folder %s: %v\n", location, err)
+		generateLogs(fmt.Sprintf("ERROR | accessing folder %s: %v\n", location, err))
 		return
 	}
 
@@ -112,7 +113,7 @@ func getItemsFromFolder(location string, jobs chan<- SubtitleJob, wg *sync.WaitG
 				wg.Add(1)                           // Register new job with wait group
 				jobs <- SubtitleJob{location, item} // Queue the job for processing
 			} else {
-				println("subtitles already extracted for:", item.Name())
+				generateLogs(fmt.Sprintf("INFO | subtitles already extracted | %s", item.Name()))
 			}
 		}
 	}
@@ -132,18 +133,18 @@ func runningEmbedSubtitleCheck(location string, item os.DirEntry) {
 	cmd := exec.Command("ffmpeg", "-i", fullPath)
 	output, err := cmd.CombinedOutput()
 	if err != nil && !strings.Contains(string(output), "Stream") {
-		println("No subtitles found for |", item.Name())
+		generateLogs(fmt.Sprintf("INFO | No subtitles found | %s", item.Name()))
 		return
 	}
 
-	println("Extracting from |", item.Name())
+	generateLogs(fmt.Sprintf("PROCESS | Extracting from | %s", item.Name()))
 
 	// Regex to detect subtitle streams with language codes
 	reStream := regexp.MustCompile(`Stream #\d+:\d+\((\w{3})\): Subtitle`)
 	matches := reStream.FindAllStringSubmatch(string(output), -1)
 
 	if len(matches) == 0 {
-		println("No subtitle stream detected for |", item.Name())
+		generateLogs(fmt.Sprintf("INFO | No subtitle detected | %s", item.Name()))
 		return
 	}
 
@@ -192,10 +193,10 @@ func runningExtractSubtitle(location, name, subtitleIndex, subtitleLanguage stri
 
 	_, err := cmd.CombinedOutput()
 	if err != nil {
-		fmt.Println("Error:", err)
+		generateLogs(fmt.Sprintf("ERROR | %s", err))
 	}
 
-	println("extracted |", subtitleLanguage, "from", name)
+	generateLogs(fmt.Sprintf("INFO | extracted | %s | %s", subtitleLanguage, name))
 
 }
 
@@ -232,4 +233,17 @@ func newLocation(value1, value2 string) string {
 //   - lowercase extension with dot prefix
 func extractExtention(value string) string {
 	return strings.ToLower(filepath.Ext(value))
+}
+
+// generateLogs formats and prints log messages with a timestamp prefix.
+// It takes a log message as input, adds the current date and time in the format "DD/MM/YYYY HH:MM:SS",
+// and outputs the combined string to standard output.
+// Parameters:
+//   - value: the log message to be printed
+func generateLogs(value string) {
+	now := time.Now()
+
+	timeFormated := fmt.Sprintf("%02d/%02d/%d %02d:%02d:%02d", now.Day(), now.Month(), now.Year(), now.Hour(), now.Minute(), now.Second())
+
+	println(timeFormated, "|", value)
 }

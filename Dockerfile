@@ -25,9 +25,9 @@ WORKDIR /app/subextract
 # Create directory for storing videos to be processed
 RUN mkdir -p /app/subextract/videos
 
-# Set up cron job to run the application every 2 hours
+# Set up cron job to run the application every 6 hours
 # Output is redirected to log file for debugging
-RUN echo " * */2 * * * /app/subextract/main >> /var/log/cron.log 2>&1" > /etc/crontabs/root
+RUN echo " * */6 * * * /app/subextract/main >> /var/log/cron.log 2>&1" > /etc/crontabs/root
 
 # Create empty log file for cron output
 RUN touch /var/log/cron.log
