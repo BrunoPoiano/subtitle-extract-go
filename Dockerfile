@@ -1,40 +1,33 @@
-# Use Go 1.24.2 with Alpine 3.21 as the base image for a lightweight container
-FROM golang:1.24.2-alpine3.21
+# Use a multi-stage build approach to reduce image size
+FROM golang:1.24.2-alpine3.21 AS builder
+
+# Set the working directory for the build stage
+WORKDIR /build
+
+# Copy only files needed for building
+COPY main.go go.mod ./
+
+# Build the Go application with static linking to reduce dependencies
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o subextract .
+
+# Use a smaller Alpine base for the final image
+FROM alpine:3.21
 
 # Set the working directory for the application
 WORKDIR /app/subextract
 
-# Copy necessary files for the Go application
-COPY start.sh main.go go.mod ./
+# Install only the necessary packages in a single RUN to reduce layers
+RUN apk add --no-cache dcron tzdata ffmpeg && \
+  mkdir -p /app/subextract/videos && \
+  echo " * */6 * * * /app/subextract/subextract >> /var/log/cron.log 2>&1" > /etc/crontabs/root && \
+  touch /var/log/cron.log
 
-# Build the Go application
-RUN go build .
-
-# Install cron daemon for scheduled tasks
-RUN apk add --no-cache dcron
-
-# Install timezone data for proper time handling
-RUN apk add --no-cache tzdata
-
-# Install ffmpeg for video processing capabilities
-RUN apk add --no-cache ffmpeg
-
-# Ensure we're in the correct working directory
-WORKDIR /app/subextract
-
-# Create directory for storing videos to be processed
-RUN mkdir -p /app/subextract/videos
-
-# Set up cron job to run the application every 6 hours
-# Output is redirected to log file for debugging
-RUN echo " * */6 * * * /app/subextract/main >> /var/log/cron.log 2>&1" > /etc/crontabs/root
-
-# Create empty log file for cron output
-RUN touch /var/log/cron.log
+# Copy only the compiled binary from the builder stage
+COPY --from=builder /build/subextract ./
 
 # Copy startup script and make it executable
-COPY start.sh /app/subextract/start.sh
-RUN chmod +x /app/subextract/start.sh
+COPY start.sh ./
+RUN chmod +x ./start.sh
 
 # Execute the startup script when container launches
-CMD ["/bin/sh", "/app/subextract/start.sh"]
+CMD ["/bin/sh", "./start.sh"]
