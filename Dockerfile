@@ -19,7 +19,7 @@ WORKDIR /app/subextract
 # Install only the necessary packages in a single RUN to reduce layers
 RUN apk add --no-cache dcron tzdata ffmpeg && \
   mkdir -p /app/subextract/videos && \
-  echo " * */6 * * * /app/subextract/subextract >> /var/log/cron.log 2>&1" > /etc/crontabs/root && \
+  echo "0 */6 * * * /app/subextract/subextract >> /var/log/cron.log 2>&1" > /etc/crontabs/root && \
   touch /var/log/cron.log
 
 # Copy only the compiled binary from the builder stage
