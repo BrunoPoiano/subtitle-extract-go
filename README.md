@@ -21,11 +21,22 @@ SubExtract is a Go application that automatically extracts embedded subtitles fr
 You can find the Docker image here: [subtitle-extract image](https://hub.docker.com/r/brunopoiano/subtitle-extract)
 
 #### Option 1: Pull from Docker Hub
+
+
+
 ```bash
+
+  #List with subtitles to extract. ex: [eng, por, spa]. If empty it will extract all subtitles
+  #SUBTITLES_TO_EXTRACT="[]"
+  #Check if subtitle file already exists to avoid redundant extraction. Default "eng"
+  #DEFAULT_SUB="eng"
+
 docker run -d \
   --name subextract \
   --restart unless-stopped \
   -e TZ=America/Sao_Paulo \
+  -e SUBTITLES_TO_EXTRACT="[]" \
+  -e DEFAULT_SUB="eng" \
   -v /location/of/videos:/app/subextract/videos:rw \
   docker.io/brunopoiano/subtitle-extract
 ```

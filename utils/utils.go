@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -51,4 +52,21 @@ func GenerateLogs(value string) {
 	now := time.Now()
 	timeFormated := fmt.Sprintf("%02d/%02d/%d %02d:%02d:%02d", now.Day(), now.Month(), now.Year(), now.Hour(), now.Minute(), now.Second())
 	println(timeFormated, "|", value)
+}
+
+// ReturnEnvVariable returns the value of the environment variable specified by key.
+// If the environment variable is not set, it returns the default_value.
+// Parameters:
+//   - key: the name of the environment variable
+//   - default_value: the value to return if the environment variable is not set
+//
+// Returns:
+//   - string: the value of the environment variable or the default value
+func ReturnEnvVariable(key, default_value string) string {
+	envKey := os.Getenv(key)
+	if envKey == "" {
+		return default_value
+	}
+
+	return envKey
 }

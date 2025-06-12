@@ -41,7 +41,7 @@ func GetItemsFromFolder(location string, jobs chan<- types.SubtitleJob, wg *sync
 			// Create full path for potential English subtitle file
 			subName := strings.TrimSuffix(item.Name(), ext)
 			newPath := utils.NewLocation(location, subName)
-			newName := utils.NewSrtName(newPath, "eng")
+			newName := utils.NewSrtName(newPath, config.DefaultSub())
 
 			// Check if subtitle file already exists to avoid redundant extraction
 			_, err := os.Stat(newName)
@@ -103,13 +103,22 @@ func RunningEmbedSubtitleCheck(location string, item os.DirEntry) {
 
 		subtitleIndex := match[1]    // Stream index (e.g., "0:2")
 		subtitleLanguage := match[2] // Language code (e.g., "eng")
-		runningExtractSubtitle(location, item.Name(), subtitleIndex, subtitleLanguage)
+
+		subs := config.SubtitlesToExtract()
+		if len(subs) == 0 {
+			runningExtractSubtitle(location, item.Name(), subtitleIndex, subtitleLanguage)
+		} else {
+			if subs[subtitleLanguage] {
+				runningExtractSubtitle(location, item.Name(), subtitleIndex, subtitleLanguage)
+			}
+		}
+
 	}
 	runSubtitleSync(location, item.Name())
 }
 
-// runSubtitleSync synchronizes subtitles using the alass-cli tool.
-// It takes the location and name of a video file as input.  It first runs alass-cli to generate a "fixed" subtitle file. Then, it iterates through all subtitle files in the directory, using alass-cli to synchronize each with the fixed subtitle file. Finally, it removes the temporary "fixed" subtitle file.
+// runSubtitleSync synchronizes subtitles using the alass tool.
+// It takes the location and name of a video file as input.  It first runs alass to generate a "fixed" subtitle file. Then, it iterates through all subtitle files in the directory, using alass to synchronize each with the fixed subtitle file. Finally, it removes the temporary "fixed" subtitle file.
 func runSubtitleSync(location string, name string) {
 
 	items, err := os.ReadDir(location)
@@ -124,7 +133,7 @@ func runSubtitleSync(location string, name string) {
 	fullFixName := utils.NewSrtName(newName, "fix")
 
 	//generate the fix subtitle based on the eng subtitle
-	cmd := exec.Command("./alass-cli", fullPath, fullEngName, fullFixName)
+	cmd := exec.Command("./alass", fullPath, fullEngName, fullFixName)
 	_, err = cmd.CombinedOutput()
 	if err != nil {
 		utils.GenerateLogs(fmt.Sprintf("ERROR | %s ", err))
@@ -139,7 +148,7 @@ func runSubtitleSync(location string, name string) {
 			itemPath := utils.NewLocation(location, item.Name())
 
 			//use the fix subtitle as reference to synch all the subtitles available for this item
-			cmd := exec.Command("./alass-cli", fullPath, fullFixName, itemPath)
+			cmd := exec.Command("./alass", fullPath, fullFixName, itemPath)
 			_, err = cmd.CombinedOutput()
 			if err != nil {
 				utils.GenerateLogs(fmt.Sprintf("ERROR | %s ", err))

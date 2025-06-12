@@ -14,6 +14,7 @@ import (
 // main is the entry point of the program that orchestrates the subtitle extraction process.
 // It sets up worker pools for parallel processing and waits for all jobs to complete.
 func main() {
+
 	var wg sync.WaitGroup
 	cpus_available := runtime.NumCPU()
 
