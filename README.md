@@ -6,6 +6,7 @@ SubExtract is a Go application that automatically extracts embedded subtitles fr
 
 - Automatic discovery of video files in folders and subfolders
 - Multi-language subtitle extraction (preserves original language codes)
+- Synch subtitles with video using [alass](https://github.com/kaegi/alass)
 - Parallel processing using worker pools for improved performance
 - Skips files that already have extracted subtitles
 - Supports multiple video formats (MP4, MKV, AVI, MOV, WMV, FLV, WEBM)
@@ -93,3 +94,4 @@ docker compose up -d
 ## Acknowledgments
 
 - FFmpeg for the underlying subtitle extraction functionality
+- Alass for the synching functionality
